@@ -1,81 +1,437 @@
-<!DOCTYPE html>
+<!doctype html>
 <html lang="uk">
 <head>
-  <meta charset="UTF-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>AR Пазл Фото</title>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width,initial-scale=1" />
+  <title>AR Пазл Фото — Personalized AR Puzzle</title>
 
   <!-- A-Frame -->
   <script src="https://aframe.io/releases/1.5.0/aframe.min.js"></script>
-  <!-- MindAR -->
+  <!-- MindAR (image marker) -->
   <script src="https://cdn.jsdelivr.net/gh/hiukim/mind-ar-js@1.2.5/dist/mindar-image.prod.js"></script>
   <script src="https://cdn.jsdelivr.net/gh/hiukim/mind-ar-js@1.2.5/dist/mindar-image-aframe.prod.js"></script>
-  <!-- Super Hands для drag&drop -->
-  <script src="https://cdn.jsdelivr.net/npm/aframe-super-hands-component@4.0.5/dist/aframe-super-hands.min.js"></script>
+  <!-- confetti -->
+  <script src="https://cdn.jsdelivr.net/npm/canvas-confetti@1.5.1/dist/confetti.browser.min.js"></script>
+
+  <style>
+    :root{--accent:#ff7aa2; --bg:#fffaf0; --card:#ffffff; --muted:#64748b}
+    body{margin:0;font-family:system-ui, -apple-system, "Segoe UI", Roboto, Arial;background:linear-gradient(180deg,#fef3c7 0%, #fff 100%);}
+    .topbar{position:fixed;left:12px;right:12px;top:12px;z-index:20;display:flex;gap:8px;align-items:center;justify-content:flex-start}
+    .btn, select, label{font-size:14px;padding:8px 10px;border-radius:10px;border:1px solid rgba(0,0,0,.08);background:var(--card);box-shadow:0 2px 6px rgba(16,24,40,.04)}
+    .btn{cursor:pointer}
+    .uploader{position:fixed;left:12px;bottom:12px;z-index:20;display:flex;gap:8px;align-items:center}
+    .info{position:fixed;right:12px;bottom:12px;z-index:20;padding:8px 12px;border-radius:10px;background:rgba(255,255,255,0.9);font-size:13px;color:var(--muted)}
+    #langSelect {min-width:140px;}
+    #titlePreview{font-weight:700;color:#2b2b2b;padding:6px 10px;border-radius:8px;background:linear-gradient(90deg,#fff,#fff0);box-shadow:0 1px 0 rgba(255,255,255,0.6) inset}
+    /* small hint for mobile */
+    @media (max-width:600px){
+      .topbar{left:8px;right:8px;top:8px}
+      .uploader{left:8px;bottom:8px}
+    }
+  </style>
 </head>
-<body style="margin:0; padding:0; overflow:hidden;">
+<body>
 
-  <!-- Кнопка завантаження фото -->
-  <input type="file" id="upload" accept="image/*" style="position:absolute; z-index:10; top:10px; left:10px;">
+  <!-- Top controls -->
+  <div class="topbar">
+    <div id="titlePreview">AR-Пазл Фото</div>
+    <select id="langSelect" class="btn" title="Choose language">
+      <option value="uk">Українська</option>
+      <option value="en">English</option>
+    </select>
+    <button id="helpBtn" class="btn">?</button>
+    <button id="resetBtn" class="btn">Reset</button>
+  </div>
 
-  <a-scene mindar-image="imageTargetSrc: ./targets.mind;" 
-           color-space="sRGB" 
-           embedded 
-           vr-mode-ui="enabled: false" 
-           device-orientation-permission-ui="enabled: false">
+  <!-- File uploader -->
+  <div class="uploader">
+    <label class="btn">
+      Завантажити фото
+      <input id="upload" type="file" accept="image/*" style="display:none">
+    </label>
+    <button id="demoBtn" class="btn">Use demo</button>
+  </div>
 
+  <div class="info" id="hintBox">Наведіть камеру на маркер, дочекайтесь появи пазлу — перетягуй частини пальцем або мишкою.</div>
+
+  <!-- AR scene (MindAR + A-Frame) -->
+  <a-scene
+    mindar-image="imageTargetSrc: ./targets.mind;"
+    embedded
+    color-space="sRGB"
+    vr-mode-ui="enabled: false"
+    device-orientation-permission-ui="enabled: false"
+    renderer="antialias: true; alpha: true"
+  >
     <a-assets>
-      <!-- Тут з’явиться завантажене фото -->
-      <img id="puzzle" crossorigin="anonymous"/>
+      <!-- placeholder image element where uploaded image will be set -->
+      <img id="userImg" crossorigin="anonymous" />
+      <!-- optional decorative frame texture (could be added to repo) -->
     </a-assets>
 
     <a-camera position="0 0 0" look-controls="enabled: false"></a-camera>
-    <a-entity id="cursor" cursor="rayOrigin: mouse"></a-entity>
 
-    <!-- Маркер -->
-    <a-entity mindar-image-target="targetIndex: 0" id="puzzle-container">
-      <!-- Пазли з'являться тут через JS -->
+    <!-- Marker target entity -->
+    <a-entity id="marker" mindar-image-target="targetIndex: 0">
+
+      <!-- Decorative album background / frame -->
+      <a-plane id="albumBg" position="0 0 0" width="1.2" height="1.2" color="#fff8ea" material="opacity:0.95"></a-plane>
+      <a-plane position="0 0 0.005" width="1.24" height="1.24" material="color:#000; opacity:0.03"></a-plane>
+
+      <!-- Title text (language controlled) -->
+      <a-entity id="panelTitle" position="0 0.55 0.01" text="value: AR-Пазл Фото; align:center; width: 2.2; color: #3b3054;"></a-entity>
+
+      <!-- Invisible interaction plane for raycasting -->
+      <a-plane id="interactionPlane" position="0 0 0.02" rotation="0 0 0" width="1.0" height="1.0" visible="false"></a-plane>
+
+      <!-- Container for puzzle pieces (populated by JS) -->
+      <a-entity id="piecesRoot"></a-entity>
+
+      <!-- Congratulation text (hidden until complete) -->
+      <a-entity id="doneText" position="0 -0.5 0.02" visible="false" text="value: ; align:center; width:2; color:#0f172a"></a-entity>
     </a-entity>
   </a-scene>
 
-  <script>
-    const upload = document.getElementById('upload');
-    const img = document.getElementById('puzzle');
-    const container = document.getElementById('puzzle-container');
+<script>
+/* ========= Config & state ========= */
+const LANG = {
+  uk: {
+    title: "AR-Пазл Фото",
+    hint: "Наведи камеру на маркер, дочекайся пазлу — тягни частини пальцем або мишкою.",
+    uploadBtn: "Завантажити фото",
+    demoBtn: "Використати демо",
+    doneMsg: "Молодець! Пазл зібрано 🎉",
+    reset: "Скинути",
+    help: "Допомога",
+    useDemo: "Демо фото завантажене"
+  },
+  en: {
+    title: "AR Photo Puzzle",
+    hint: "Point your camera to the marker, wait for the puzzle — drag pieces with touch or mouse.",
+    uploadBtn: "Upload Photo",
+    demoBtn: "Use Demo",
+    doneMsg: "Great! Puzzle completed 🎉",
+    reset: "Reset",
+    help: "Help",
+    useDemo: "Demo photo loaded"
+  }
+};
 
-    upload.addEventListener('change', (event) => {
-      const file = event.target.files[0];
-      if (file) {
-        const reader = new FileReader();
-        reader.onload = (e) => {
-          img.setAttribute('src', e.target.result);
+let lang = 'uk';
+const piecesRoot = document.getElementById('piecesRoot');
+const imgEl = document.getElementById('userImg');
+const upload = document.getElementById('upload');
+const demoBtn = document.getElementById('demoBtn');
+const langSelect = document.getElementById('langSelect');
+const titlePreview = document.getElementById('titlePreview');
+const hintBox = document.getElementById('hintBox');
+const doneText = document.getElementById('doneText');
+const resetBtn = document.getElementById('resetBtn');
+const helpBtn = document.getElementById('helpBtn');
 
-          // Очистити контейнер
-          container.innerHTML = "";
+/* target positions (relative to marker) and tolerance */
+const TARGETS = [
+  { x: -0.3, y: 0.3, z: 0 },
+  { x:  0.3, y: 0.3, z: 0 },
+  { x: -0.3, y:-0.3, z: 0 },
+  { x:  0.3, y:-0.3, z: 0 }
+];
+const SNAP_RADIUS = 0.12; // in A-Frame units
 
-          // Координати для 4 шматків
-          const positions = [
-            {x: -0.3, y: 0.3, offset: "0 0"},
-            {x: 0.3, y: 0.3, offset: "0.5 0"},
-            {x: -0.3, y: -0.3, offset: "0 0.5"},
-            {x: 0.3, y: -0.3, offset: "0.5 0.5"}
-          ];
+/* pieces data */
+let pieces = []; // {el, targetIndex, placed}
 
-          positions.forEach((p, i) => {
-            const piece = document.createElement("a-plane");
-            piece.setAttribute("width", "0.5");
-            piece.setAttribute("height", "0.5");
-            piece.setAttribute("position", `${p.x} ${p.y} 0`);
-            piece.setAttribute("grabbable", "");
-            piece.setAttribute("draggable", "");
-            piece.setAttribute("droppable", "");
-            piece.setAttribute("material", `src: #puzzle; shader: flat; repeat: 0.5 0.5; offset: ${p.offset}`);
-            container.appendChild(piece);
-          });
-        };
-        reader.readAsDataURL(file);
-      }
+/* helper to set UI language */
+function updateLang() {
+  const t = LANG[lang];
+  titlePreview.textContent = t.title;
+  hintBox.textContent = t.hint;
+  document.querySelector('.btn[for]')?.textContent = t.uploadBtn;
+  document.getElementById('demoBtn').textContent = t.demoBtn;
+  document.getElementById('resetBtn').textContent = t.reset;
+  document.getElementById('helpBtn').textContent = t.help;
+  document.getElementById('titlePreview').textContent = t.title;
+  const panelTitle = document.getElementById('panelTitle');
+  panelTitle.setAttribute('text', `value: ${t.title}; align:center; width: 2.2; color: #3b3054;`);
+}
+updateLang();
+
+/* ========== Upload / Demo handling ========== */
+upload.addEventListener('change', async (e) => {
+  const file = e.target.files[0];
+  if (!file) return;
+  const dataUrl = await readFileAsDataURL(file);
+  setImageAndSpawnPieces(dataUrl);
+});
+
+demoBtn.addEventListener('click', async () => {
+  // a small demo image encoded as data url (fallback) - you can replace with a repo image
+  const demo = 'https://images.unsplash.com/photo-1544005313-94ddf0286df2?w=1200&auto=format&fit=crop&q=60';
+  setImageAndSpawnPieces(demo);
+  hintBox.textContent = LANG[lang].useDemo;
+});
+
+/* read file helper */
+function readFileAsDataURL(file){
+  return new Promise((res, rej) => {
+    const reader = new FileReader();
+    reader.onload = (ev)=>res(ev.target.result);
+    reader.onerror = rej;
+    reader.readAsDataURL(file);
+  });
+}
+
+/* reset state and pieces */
+function clearPieces(){
+  piecesRoot.innerHTML = '';
+  pieces = [];
+  doneText.setAttribute('visible', 'false');
+}
+
+/* spawn pieces: set img src and create 4 planes with offsets */
+function setImageAndSpawnPieces(src){
+  clearPieces();
+  // set asset image (A-Frame will use it as texture)
+  imgEl.setAttribute('src', src);
+
+  // create a short intro animation title
+  // create pieces as a-plane, assign material with repeat/offset for each quadrant
+  TARGETS.forEach((tgt, i) => {
+    const aPlane = document.createElement('a-plane');
+    aPlane.setAttribute('width','0.6');
+    aPlane.setAttribute('height','0.6');
+    // start above for drop animation
+    const startY = tgt.y + 1.0;
+    aPlane.setAttribute('position', `${tgt.x} ${startY} ${tgt.z}`);
+    aPlane.setAttribute('rotation', '0 0 0');
+    aPlane.setAttribute('material', `src: #userImg; shader: flat; repeat: 0.5 0.5; offset: ${i%2===0?0:0.5} ${i<2?0:0.5};`);
+    aPlane.setAttribute('class', 'puzzle-piece');
+    aPlane.setAttribute('id', `piece${i}`);
+    aPlane.setAttribute('data-index', i);
+    aPlane.setAttribute('shadow', 'receive:false');
+
+    // subtle border look
+    aPlane.setAttribute('material', aPlane.getAttribute('material') + '; transparent:false');
+
+    // a little scale-in animation at the end of drop
+    aPlane.setAttribute('animation', `property: position; to: ${tgt.x} ${tgt.y} ${tgt.z}; dur: 1000; easing: easeOutBounce;`);
+
+    piecesRoot.appendChild(aPlane);
+
+    pieces.push({
+      el: aPlane,
+      targetIndex: i,
+      placed: false
     });
-  </script>
+  });
+
+  // small highlight around album after spawn
+  setTimeout(()=> {
+    const bg = document.getElementById('albumBg');
+    bg.setAttribute('animation__pulse', 'property: scale; to: 1.03 1.03 1; dur: 300; dir: alternate; loop: 2;')
+  }, 1200);
+
+  // allow small delay then enable interactions
+  setTimeout(()=> {
+    enableInteraction();
+  }, 1400);
+}
+
+/* ========== Interaction: pointer -> raycast to interactionPlane ========== */
+let sceneEl = document.querySelector('a-scene');
+let camera, raycaster;
+sceneEl.addEventListener('loaded', ()=>{
+  camera = sceneEl.camera; // THREE.Camera
+  raycaster = new THREE.Raycaster();
+});
+
+// get mesh of the invisible plane to intersect
+function getInteractionMesh(){
+  const planeEl = document.getElementById('interactionPlane');
+  if (!planeEl) return null;
+  return planeEl.getObject3D('mesh');
+}
+
+/* active dragging state */
+let selected = null; // {piece, offsetVec3World}
+let isPointerDown = false;
+
+function enableInteraction(){
+  const canvas = sceneEl.renderer.domElement;
+  canvas.style.touchAction = 'none';
+
+  canvas.addEventListener('pointerdown', onPointerDown);
+  window.addEventListener('pointermove', onPointerMove);
+  window.addEventListener('pointerup', onPointerUp);
+
+  // also support mouseleave
+  canvas.addEventListener('pointerleave', onPointerUp);
+}
+
+/* helper: convert client coords to THREE normalized device coords */
+function getNDCFromEvent(ev){
+  const rect = sceneEl.renderer.domElement.getBoundingClientRect();
+  const x = ( (ev.clientX - rect.left) / rect.width ) * 2 - 1;
+  const y = - ( (ev.clientY - rect.top) / rect.height ) * 2 + 1;
+  return {x,y};
+}
+
+/* find piece under pointer by raycasting against piece meshes */
+function findPieceUnderPointer(ev){
+  const ndc = getNDCFromEvent(ev);
+  raycaster.setFromCamera(ndc, camera);
+  // build array of meshes
+  const meshes = pieces.map(p => p.el.getObject3D('mesh')).filter(m=>m);
+  const intersects = raycaster.intersectObjects(meshes, true);
+  if (intersects.length>0) {
+    // find which piece
+    const mesh = intersects[0].object;
+    // find ancestor mesh matching one of our piece meshes
+    const pieceObj = pieces.find(p => {
+      const pm = p.el.getObject3D('mesh');
+      return pm && (pm === mesh || pm.children.includes(mesh) || pm.uuid === mesh.uuid);
+    });
+    return pieceObj || null;
+  }
+  return null;
+}
+
+/* pointerdown: if clicked on piece -> select, compute offset between piece world pos and intersection point */
+function onPointerDown(ev){
+  isPointerDown = true;
+  ev.preventDefault();
+  if (!pieces.length) return;
+  const pieceObj = findPieceUnderPointer(ev);
+  if (!pieceObj) return;
+  // if already snapped in place, ignore
+  if (pieceObj.placed) return;
+  selected = { piece: pieceObj };
+
+  // compute intersection with interaction plane to get world point
+  const ndc = getNDCFromEvent(ev);
+  raycaster.setFromCamera(ndc, camera);
+  const interMesh = getInteractionMesh();
+  if (!interMesh) return;
+  const intersects = raycaster.intersectObject(interMesh, true);
+  if (intersects.length > 0){
+    // intersection point in world coords
+    const worldPoint = intersects[0].point.clone();
+    // get piece world position
+    const pieceMesh = pieceObj.el.object3D;
+    const pieceWorldPos = new THREE.Vector3();
+    pieceMesh.getWorldPosition(pieceWorldPos);
+    // compute offset vector (so piece doesn't snap pointer center)
+    const offset = pieceWorldPos.clone().sub(worldPoint);
+    selected.offset = offset;
+  } else {
+    selected = null;
+  }
+}
+
+/* pointermove: if selected -> project pointer to interaction plane and set piece to that local pos */
+function onPointerMove(ev){
+  if (!isPointerDown || !selected) return;
+  ev.preventDefault();
+  const ndc = getNDCFromEvent(ev);
+  raycaster.setFromCamera(ndc, camera);
+  const interMesh = getInteractionMesh();
+  if (!interMesh) return;
+  const intersects = raycaster.intersectObject(interMesh, true);
+  if (intersects.length > 0){
+    const worldPoint = intersects[0].point.clone();
+    const newWorld = worldPoint.clone().add(selected.offset || new THREE.Vector3(0,0,0));
+    // convert world to marker-local coords
+    const markerEl = document.getElementById('marker');
+    const localPos = new THREE.Vector3();
+    markerEl.object3D.worldToLocal(localPos.copy(newWorld));
+    // apply position to piece
+    selected.piece.el.object3D.position.copy(localPos);
+    selected.piece.el.object3D.position.z = 0; // keep on plane
+  }
+}
+
+/* pointerup: if selected -> release and check snapping */
+function onPointerUp(ev){
+  isPointerDown = false;
+  if (!selected) return;
+  // check snapping
+  const pieceObj = selected.piece;
+  const piecePos = new THREE.Vector3();
+  pieceObj.el.object3D.getWorldPosition(piecePos);
+  // convert world to marker-local
+  const markerEl = document.getElementById('marker');
+  const localPos = new THREE.Vector3();
+  markerEl.object3D.worldToLocal(localPos.copy(piecePos));
+
+  // target local pos
+  const tgt = TARGETS[pieceObj.targetIndex];
+  const dx = localPos.x - tgt.x;
+  const dy = localPos.y - tgt.y;
+  const dist = Math.sqrt(dx*dx + dy*dy);
+  if (dist <= SNAP_RADIUS){
+    // snap in place (animate)
+    pieceObj.el.setAttribute('animation__snap', `property: position; to: ${tgt.x} ${tgt.y} ${tgt.z}; dur: 250; easing: easeOutQuad`);
+    pieceObj.placed = true;
+    // small scale pop
+    pieceObj.el.setAttribute('animation__pop', 'property: scale; to: 1.06 1.06 1; dur: 160; dir: alternate; loop: 1');
+    // lock interactions by removing pointer events (optional)
+    // pieceObj.el.removeEventListener... (we check placed flag)
+  } else {
+    // leave where released
+  }
+
+  selected = null;
+  // check completion
+  checkAllPlaced();
+}
+
+/* check if all pieces placed */
+function checkAllPlaced(){
+  if (pieces.length === 0) return;
+  const all = pieces.every(p => p.placed);
+  if (all){
+    // show confetti and message in chosen language
+    const msg = LANG[lang].doneMsg;
+    doneText.setAttribute('text', `value: ${msg}; align:center; width:2; color:#0f172a;`);
+    doneText.setAttribute('visible','true');
+    // fire confetti in DOM
+    confetti({
+      particleCount: 120,
+      spread: 70,
+      origin: { y: 0.6 }
+    });
+    // small celebration animation of album
+    const bg = document.getElementById('albumBg');
+    bg.setAttribute('animation__shake', 'property: rotation; to: 0 0 6; dur: 80; dir: alternate; loop: 6');
+  }
+}
+
+/* reset button */
+resetBtn.addEventListener('click', ()=>{
+  clearPieces();
+  hintBox.textContent = LANG[lang].hint;
+});
+
+/* language change handling */
+langSelect.addEventListener('change', (e)=>{
+  lang = e.target.value;
+  updateLang();
+});
+
+/* help button */
+helpBtn.addEventListener('click', ()=>{
+  alert( lang === 'uk'
+    ? 'Підказка:\n1) Натисни "Завантажити фото" або "Use demo".\n2) Наведи камеру на маркер (файлик targets.mind).\n3) Перетягуй частини пазлу пальцем або мишкою. Коли всі 4 частини на своєму місці — буде святкова анімація.'
+    : 'Hint:\n1) Click "Upload Photo" or "Use Demo".\n2) Point camera to the marker (targets.mind).\n3) Drag pieces with touch or mouse. When all 4 pieces are in place — celebration will trigger.'
+  );
+});
+
+/* initial language set in UI */
+updateLang();
+
+/* small note: the app requires a valid targets.mind file in repo root. */
+/* End of script */
+</script>
+
 </body>
 </html>
