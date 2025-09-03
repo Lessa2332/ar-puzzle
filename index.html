@@ -9,7 +9,7 @@
   <script src="https://aframe.io/releases/1.5.0/aframe.min.js"></script>
   <!-- MindAR для розпізнавання зображення -->
   <script src="https://cdn.jsdelivr.net/gh/hiukim/mind-ar-js@1.2.5/dist/mindar-image-aframe.prod.js"></script>
-  <!-- Confetti для святкових ефектів -->
+  <!-- Confetti -->
   <script src="https://cdn.jsdelivr.net/npm/canvas-confetti@1.5.1/dist/confetti.browser.min.js"></script>
 
   <style>
@@ -17,7 +17,7 @@
       margin: 0;
       padding: 0;
       font-family: 'Comic Sans MS', cursive, sans-serif;
-      background: #ffebf3;
+      background: #fff0f5;
       overflow: hidden;
       touch-action: none;
     }
@@ -48,7 +48,7 @@
       justify-content: center;
       align-items: center;
       font-size: 1.5em;
-      z-index: 200;
+      z-index: 300;
       text-align: center;
       padding: 20px;
     }
@@ -76,6 +76,24 @@
       text-shadow: 0 0 5px white;
     }
 
+    /* Кнопка YouTube — твоя */
+    #smartLessaBtn {
+      position: fixed;
+      bottom: 70px;
+      left: 50%;
+      transform: translateX(-50%);
+      background: linear-gradient(45deg, #ff8a00, #e65100);
+      color: white;
+      padding: 14px 24px;
+      border-radius: 30px;
+      font-size: 1.1em;
+      font-weight: bold;
+      text-decoration: none;
+      z-index: 100;
+      box-shadow: 0 6px 12px rgba(0,0,0,0.4);
+      text-align: center;
+    }
+
     a-scene {
       width: 100%;
       height: 100vh;
@@ -84,16 +102,16 @@
 </head>
 <body>
 
-  <!-- Екран завантаження -->
+  <!-- Екран: клацни, щоб увімкнути -->
   <div id="loading">
-    🔮 Чарівний AR-пазл завантажується...<br>
-    Будь ласка, дайте доступ до камери!
+    🔮 AR-чари готові!<br>
+    👉 Клацни, щоб увімкнути камеру!
   </div>
 
   <!-- Підказка -->
-  <div id="hint">🔍 Наведіть камеру на маркер-зірку</div>
+  <div id="hint">🔍 Наведи на маркер-зірку</div>
 
-  <!-- Кнопки -->
+  <!-- Кнопки керування -->
   <div id="controls">
     <label class="btn">
       📸 Завантаж фото
@@ -102,13 +120,9 @@
     <button id="demoBtn" class="btn">🎮 Демо</button>
   </div>
 
-  <!-- Посилання на YouTube -->
-  <a href="https://youtube.com/playlist?list=PL6UDFwT9TzFxsVdFiEBsQ9yFpcYRPOpfO&si=IyXv1SkdPyvhcW7Z"
-     id="smartLessaBtn"
-     target="_blank"
-     style="position:fixed; bottom:70px; left:50%; transform:translateX(-50%); color:#ff4081; text-decoration:none; font-weight:bold; font-size:14px; z-index:100; background:white; padding:8px 16px; border-radius:20px; box-shadow:0 2px 6px rgba(0,0,0,0.1);">
-     👉 Дивись більше на @SmartLessa
-  </a>
+  <!-- Твоя кнопка YouTube -->
+  <a href="https://youtube.com/playlist?list=PL6UDFwT9TzFxsVdFiEBsQ9yFpcYRPOpfO&si=IyXv1SkdPyvhcW7Z" 
+     id="smartLessaBtn" target="_blank">👉 Дивись більше на @SmartLessa</a>
 
   <!-- AR Сцена -->
   <a-scene
@@ -116,49 +130,66 @@
     color-space="sRGB"
     renderer="antialias: true; alpha: true; background: transparent"
     vr-mode-ui="enabled: false"
-    device-orientation-permission-ui="enabled: true"
+    device-orientation-permission-ui="enabled: false"
   >
     <a-assets>
-      <!-- Фото користувача -->
       <img id="userImg" crossorigin="anonymous" />
     </a-assets>
 
     <a-camera position="0 0 0" look-controls="enabled: false"></a-camera>
 
-    <!-- Маркер -->
     <a-entity mindar-image-target="targetIndex: 0" id="marker">
-      <!-- Назва -->
       <a-entity position="0 0.6 0"
                 text="value: Збери пазл!; align:center; width:2; color:#ff1493; font-weight:bold;"></a-entity>
 
-      <!-- Підкладка -->
       <a-plane position="0 0 0" width="1" height="1" color="#fff" opacity="0.1"></a-plane>
 
-      <!-- Контейнер для частин пазлу -->
       <a-entity id="pieces"></a-entity>
 
-      <!-- Напис "Молодець!" -->
       <a-entity id="winText" visible="false" position="0 -0.6 0"
-                text="value: Молодець! 🎉; align:center; width:2; color:#ff4500; font-weight:bold; font-size:0.4;"></a-entity>
+                text="value: Молодець! 🎉; align:center; width:2; color:#ff4500; font-weight:bold;"></a-entity>
     </a-entity>
   </a-scene>
 
-  <!-- Звук при успіху -->
+  <!-- Звук при збиранні -->
   <audio id="successSound" src="https://cdn.pixabay.com/audio/2021/09/21/audio_2811f3692c.mp3" preload="auto"></audio>
 
   <script>
+    // Екран "клацни"
+    document.getElementById('loading').addEventListener('click', async () => {
+      document.getElementById('loading').style.display = 'none';
+      await requestCamera();
+    });
+
+    // Запит на камеру
+    async function requestCamera() {
+      try {
+        await navigator.mediaDevices.getUserMedia({ video: true });
+        console.log("✅ Доступ до камери отримано");
+      } catch (err) {
+        console.error("❌ Помилка камери:", err);
+        alert("Будь ласка, дозвольте доступ до камери в налаштуваннях браузера");
+      }
+    }
+
+    // Запуск при кліку
+    window.addEventListener('load', () => {
+      // Додатково — якщо хтось натисне будь-де
+      document.body.addEventListener('touchstart', requestCamera, { once: true });
+      document.body.addEventListener('click', requestCamera, { once: true });
+    });
+
+    // --- Решта коду (завантаження фото, пазл, drag & drop) ---
     const upload = document.getElementById('upload');
     const demoBtn = document.getElementById('demoBtn');
     const userImg = document.getElementById('userImg');
     const piecesEl = document.getElementById('pieces');
     const winText = document.querySelector('#winText');
     const successSound = document.getElementById('successSound');
-    const loadingScreen = document.getElementById('loading');
     const hint = document.getElementById('hint');
 
     let pieces = [];
 
-    // Позиції для 2x2 пазлу
     const positions = [
       { x: -0.25, y:  0.25 },
       { x:  0.25, y:  0.25 },
@@ -166,20 +197,12 @@
       { x:  0.25, y: -0.25 }
     ];
 
-    // Приховуємо екран завантаження після старту рендеру
-    document.querySelector('a-scene').addEventListener('renderstart', () => {
-      loadingScreen.style.display = 'none';
-      hint.textContent = "Завантаж фото або натисни Демо";
-    });
-
-    // Обробка завантаження фото
     upload.addEventListener('change', (e) => {
       const file = e.target.files[0];
       if (file) startPuzzle(URL.createObjectURL(file));
     });
 
     demoBtn.addEventListener('click', () => {
-      // Використовуємо фото з Unsplash
       const demoImg = 'https://source.unsplash.com/random/800x800?smile,kid,joy';
       startPuzzle(demoImg);
     });
@@ -195,32 +218,20 @@
     function createPieces() {
       piecesEl.innerHTML = '';
       pieces = [];
-
       positions.forEach((pos, i) => {
         const piece = document.createElement('a-plane');
         piece.setAttribute('width', 0.5);
         piece.setAttribute('height', 0.5);
         piece.setAttribute('position', `${pos.x} ${pos.y + 1} 0`);
         piece.setAttribute('material', `src: #userImg; shader: flat; repeat: 0.5 0.5; offset: ${i%2===0?0:0.5} ${i<2?0:0.5}; transparent: true;`);
-        piece.setAttribute('class', 'draggable');
         piece.setAttribute('id', `piece-${i}`);
-
-        // Анімація появи
         piece.setAttribute('animation', `property: position; to: ${pos.x} ${pos.y} 0; dur: 800; easing: easeOutElastic`);
-
         piecesEl.appendChild(piece);
-
-        pieces.push({
-          el: piece,
-          target: pos,
-          placed: false
-        });
+        pieces.push({ el: piece, target: pos, placed: false });
       });
-
       setTimeout(enableDrag, 1000);
     }
 
-    // Drag & Drop
     function enableDrag() {
       const scene = document.querySelector('a-scene');
       const camera = scene.camera;
@@ -230,7 +241,7 @@
       const canvas = scene.renderer.domElement;
       canvas.addEventListener('pointerdown', (e) => {
         if (selected) return;
-        const ndc = getMouseNDC(e, scene);
+        const ndc = getNDC(e);
         raycaster.setFromCamera(ndc, camera);
         const intersects = raycaster.intersectObjects(getMeshes(), true);
         if (intersects.length > 0) {
@@ -244,13 +255,12 @@
 
       window.addEventListener('pointermove', (e) => {
         if (!selected) return;
-        const ndc = getMouseNDC(e, scene);
+        const ndc = getNDC(e);
         raycaster.setFromCamera(ndc, camera);
         const plane = new THREE.Plane(new THREE.Vector3(0, 0, 1), 0);
         const point = new THREE.Vector3();
-        if (raycaster.ray.intersectPlane(plane, point)) {
-          selected.object3D.position.set(point.x, point.y, 0);
-        }
+        raycaster.ray.intersectPlane(plane, point);
+        selected.object3D.position.set(point.x, point.y, 0);
       });
 
       window.addEventListener('pointerup', () => {
@@ -260,8 +270,7 @@
           if (p.el === selected && !p.placed) {
             const dx = pos.x - p.target.x;
             const dy = pos.y - p.target.y;
-            const dist = Math.sqrt(dx*dx + dy*dy);
-            if (dist < 0.1) {
+            if (Math.sqrt(dx*dx + dy*dy) < 0.1) {
               pos.x = p.target.x;
               pos.y = p.target.y;
               p.placed = true;
@@ -274,7 +283,7 @@
         selected = null;
       });
 
-      function getMouseNDC(e, scene) {
+      function getNDC(e) {
         const rect = scene.canvas.getBoundingClientRect();
         return {
           x: ((e.clientX - rect.left) / rect.width) * 2 - 1,
@@ -291,17 +300,11 @@
     }
 
     function checkWin() {
-      const all = pieces.every(p => p.placed);
-      if (all) {
+      if (pieces.every(p => p.placed)) {
         winText.setAttribute('visible', 'true');
         successSound.play().catch(() => {});
-        confetti({
-          particleCount: 100,
-          spread: 70,
-          origin: { y: 0.6 },
-          colors: ['#ff0044', '#ff6600', '#ffff00', '#00ff00', '#0066ff']
-        });
-        hint.textContent = "🎉 Супер! Завантаж нове фото!";
+        confetti({ particleCount: 100, spread: 70, origin: { y: 0.6 } });
+        hint.textContent = "🎉 Молодець! Завантаж нове фото!";
       }
     }
   </script>
