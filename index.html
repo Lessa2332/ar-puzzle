@@ -3,13 +3,13 @@
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, height=device-height, initial-scale=1.0, user-scalable=no">
-  <title>AR Пазл для Дітей</title>
+  <title>AR Пазл для Дітей — SmartLessa</title>
 
-  <!-- A-Frame (3D/AR) -->
+  <!-- A-Frame -->
   <script src="https://aframe.io/releases/1.5.0/aframe.min.js"></script>
-  <!-- MindAR (розпізнавання зображення) -->
+  <!-- MindAR для розпізнавання зображення -->
   <script src="https://cdn.jsdelivr.net/gh/hiukim/mind-ar-js@1.2.5/dist/mindar-image-aframe.prod.js"></script>
-  <!-- Конфетті -->
+  <!-- Confetti для святкових ефектів -->
   <script src="https://cdn.jsdelivr.net/npm/canvas-confetti@1.5.1/dist/confetti.browser.min.js"></script>
 
   <style>
@@ -19,18 +19,38 @@
       font-family: 'Comic Sans MS', cursive, sans-serif;
       background: #ffebf3;
       overflow: hidden;
+      touch-action: none;
     }
 
     .btn {
-      padding: 10px 16px;
+      padding: 12px 20px;
       font-size: 16px;
+      font-weight: bold;
       border: none;
       border-radius: 30px;
+      background: linear-gradient(45deg, #ff4081, #ff69b4);
+      color: white;
+      cursor: pointer;
+      box-shadow: 0 4px 10px rgba(0,0,0,0.2);
+      text-align: center;
+    }
+
+    #loading {
+      position: fixed;
+      top: 0;
+      left: 0;
+      width: 100%;
+      height: 100%;
       background: #ff69b4;
       color: white;
-      font-weight: bold;
-      cursor: pointer;
-      box-shadow: 0 4px 8px rgba(0,0,0,0.2);
+      display: flex;
+      flex-direction: column;
+      justify-content: center;
+      align-items: center;
+      font-size: 1.5em;
+      z-index: 200;
+      text-align: center;
+      padding: 20px;
     }
 
     #controls {
@@ -39,7 +59,7 @@
       left: 50%;
       transform: translateX(-50%);
       display: flex;
-      gap: 10px;
+      gap: 15px;
       z-index: 100;
     }
 
@@ -59,32 +79,47 @@
     a-scene {
       width: 100%;
       height: 100vh;
-      display: block;
     }
   </style>
 </head>
 <body>
 
+  <!-- Екран завантаження -->
+  <div id="loading">
+    🔮 Чарівний AR-пазл завантажується...<br>
+    Будь ласка, дайте доступ до камери!
+  </div>
+
   <!-- Підказка -->
-  <div id="hint">Наведи камеру на маркер-зірку 🌟</div>
+  <div id="hint">🔍 Наведіть камеру на маркер-зірку</div>
 
   <!-- Кнопки -->
   <div id="controls">
     <label class="btn">
-      📸 Фото
-      <input type="file" id="upload" accept="image/*" style="display:none">
+      📸 Завантаж фото
+      <input type="file" id="upload" accept="image/*" style="display: none;">
     </label>
-    <button id="demoBtn" class="btn">Демо</button>
+    <button id="demoBtn" class="btn">🎮 Демо</button>
   </div>
+
+  <!-- Посилання на YouTube -->
+  <a href="https://youtube.com/playlist?list=PL6UDFwT9TzFxsVdFiEBsQ9yFpcYRPOpfO&si=IyXv1SkdPyvhcW7Z"
+     id="smartLessaBtn"
+     target="_blank"
+     style="position:fixed; bottom:70px; left:50%; transform:translateX(-50%); color:#ff4081; text-decoration:none; font-weight:bold; font-size:14px; z-index:100; background:white; padding:8px 16px; border-radius:20px; box-shadow:0 2px 6px rgba(0,0,0,0.1);">
+     👉 Дивись більше на @SmartLessa
+  </a>
 
   <!-- AR Сцена -->
   <a-scene
     mindar-image="imageTargetSrc: ./targets.mind; autoStart: false"
     color-space="sRGB"
-    renderer="antialias: true; alpha: true"
+    renderer="antialias: true; alpha: true; background: transparent"
     vr-mode-ui="enabled: false"
+    device-orientation-permission-ui="enabled: true"
   >
     <a-assets>
+      <!-- Фото користувача -->
       <img id="userImg" crossorigin="anonymous" />
     </a-assets>
 
@@ -92,31 +127,33 @@
 
     <!-- Маркер -->
     <a-entity mindar-image-target="targetIndex: 0" id="marker">
-      <!-- Текст -->
-      <a-entity position="0 0.6 0" text="value: Збери пазл!; align:center; width:2; color:#ff1493;"></a-entity>
+      <!-- Назва -->
+      <a-entity position="0 0.6 0"
+                text="value: Збери пазл!; align:center; width:2; color:#ff1493; font-weight:bold;"></a-entity>
 
-      <!-- Площинка-підкладка -->
-      <a-plane position="0 0 0" width="1" height="1" color="#fff" opacity="0.2"></a-plane>
+      <!-- Підкладка -->
+      <a-plane position="0 0 0" width="1" height="1" color="#fff" opacity="0.1"></a-plane>
 
-      <!-- Контейнер для частин -->
+      <!-- Контейнер для частин пазлу -->
       <a-entity id="pieces"></a-entity>
 
       <!-- Напис "Молодець!" -->
       <a-entity id="winText" visible="false" position="0 -0.6 0"
-                text="value: Молодець! 🎉; align:center; width:2; color:#ff4500; font-weight:bold;"></a-entity>
+                text="value: Молодець! 🎉; align:center; width:2; color:#ff4500; font-weight:bold; font-size:0.4;"></a-entity>
     </a-entity>
   </a-scene>
 
-  <!-- Звук -->
-  <audio id="winSound" src="https://www.soundjay.com/misc/sounds/bell-ringing-05.mp3" preload="auto"></audio>
+  <!-- Звук при успіху -->
+  <audio id="successSound" src="https://cdn.pixabay.com/audio/2021/09/21/audio_2811f3692c.mp3" preload="auto"></audio>
 
   <script>
     const upload = document.getElementById('upload');
     const demoBtn = document.getElementById('demoBtn');
     const userImg = document.getElementById('userImg');
-    const piecesEl = document.querySelector('#pieces');
-    const winText = document.getElementById('winText');
-    const winSound = document.getElementById('winSound');
+    const piecesEl = document.getElementById('pieces');
+    const winText = document.querySelector('#winText');
+    const successSound = document.getElementById('successSound');
+    const loadingScreen = document.getElementById('loading');
     const hint = document.getElementById('hint');
 
     let pieces = [];
@@ -129,29 +166,30 @@
       { x:  0.25, y: -0.25 }
     ];
 
-    // Завантаження фото
+    // Приховуємо екран завантаження після старту рендеру
+    document.querySelector('a-scene').addEventListener('renderstart', () => {
+      loadingScreen.style.display = 'none';
+      hint.textContent = "Завантаж фото або натисни Демо";
+    });
+
+    // Обробка завантаження фото
     upload.addEventListener('change', (e) => {
       const file = e.target.files[0];
-      if (file) loadAndStart(file);
+      if (file) startPuzzle(URL.createObjectURL(file));
     });
 
     demoBtn.addEventListener('click', () => {
-      fetch('https://source.unsplash.com/random/800x800?smile,kid')
-        .then(r => r.blob())
-        .then(blob => {
-          const file = new File([blob], "demo.jpg", { type: "image/jpeg" });
-          loadAndStart(file);
-        });
+      // Використовуємо фото з Unsplash
+      const demoImg = 'https://source.unsplash.com/random/800x800?smile,kid,joy';
+      startPuzzle(demoImg);
     });
 
-    function loadAndStart(file) {
-      const reader = new FileReader();
-      reader.onload = (e) => {
-        userImg.src = e.target.result;
-        setTimeout(createPieces, 500); // чекаємо завантаження
+    function startPuzzle(imageSrc) {
+      userImg.src = imageSrc;
+      userImg.onload = () => {
+        createPieces();
+        hint.textContent = "Шукай маркер!";
       };
-      reader.readAsDataURL(file);
-      hint.textContent = "Тепер шукай маркер!";
     }
 
     function createPieces() {
@@ -162,8 +200,8 @@
         const piece = document.createElement('a-plane');
         piece.setAttribute('width', 0.5);
         piece.setAttribute('height', 0.5);
-        piece.setAttribute('position', `${pos.x} ${pos.y + 1} 0`); // вилітають згори
-        piece.setAttribute('material', `src: #userImg; shader: flat; repeat: 0.5 0.5; offset: ${i%2===0?0:0.5} ${i<2?0:0.5};`);
+        piece.setAttribute('position', `${pos.x} ${pos.y + 1} 0`);
+        piece.setAttribute('material', `src: #userImg; shader: flat; repeat: 0.5 0.5; offset: ${i%2===0?0:0.5} ${i<2?0:0.5}; transparent: true;`);
         piece.setAttribute('class', 'draggable');
         piece.setAttribute('id', `piece-${i}`);
 
@@ -189,14 +227,15 @@
       const raycaster = new THREE.Raycaster();
       let selected = null;
 
-      scene.canvas.addEventListener('pointerdown', (e) => {
+      const canvas = scene.renderer.domElement;
+      canvas.addEventListener('pointerdown', (e) => {
         if (selected) return;
         const ndc = getMouseNDC(e, scene);
         raycaster.setFromCamera(ndc, camera);
         const intersects = raycaster.intersectObjects(getMeshes(), true);
         if (intersects.length > 0) {
           const piece = intersects[0].object.el;
-          if (!piece.parentElement.placed) {
+          if (piece && !piece.parentElement.placed) {
             selected = piece.parentElement;
             selected.object3D.scale.set(1.1, 1.1, 1);
           }
@@ -209,8 +248,9 @@
         raycaster.setFromCamera(ndc, camera);
         const plane = new THREE.Plane(new THREE.Vector3(0, 0, 1), 0);
         const point = new THREE.Vector3();
-        raycaster.ray.intersectPlane(plane, point);
-        selected.object3D.position.set(point.x, point.y, 0);
+        if (raycaster.ray.intersectPlane(plane, point)) {
+          selected.object3D.position.set(point.x, point.y, 0);
+        }
       });
 
       window.addEventListener('pointerup', () => {
@@ -220,7 +260,8 @@
           if (p.el === selected && !p.placed) {
             const dx = pos.x - p.target.x;
             const dy = pos.y - p.target.y;
-            if (Math.sqrt(dx*dx + dy*dy) < 0.1) {
+            const dist = Math.sqrt(dx*dx + dy*dy);
+            if (dist < 0.1) {
               pos.x = p.target.x;
               pos.y = p.target.y;
               p.placed = true;
@@ -253,16 +294,14 @@
       const all = pieces.every(p => p.placed);
       if (all) {
         winText.setAttribute('visible', 'true');
-        winSound.play();
+        successSound.play().catch(() => {});
         confetti({
           particleCount: 100,
           spread: 70,
           origin: { y: 0.6 },
           colors: ['#ff0044', '#ff6600', '#ffff00', '#00ff00', '#0066ff']
         });
-        setTimeout(() => {
-          hint.textContent = "Супер! Завантаж нове фото!";
-        }, 2000);
+        hint.textContent = "🎉 Супер! Завантаж нове фото!";
       }
     }
   </script>
