@@ -77,7 +77,7 @@
       box-shadow: 0 4px 10px rgba(0,0,0,0.2);
     }
 
-    /* Кнопка YouTube — мала, у кутку */
+    /* Кнопка YouTube */
     #smartLessaBtn {
       position: fixed;
       bottom: 15px;
@@ -119,7 +119,7 @@
     </label>
   </div>
 
-  <!-- Кнопка YouTube -->
+  <!-- Твоя кнопка YouTube -->
   <a href="https://youtube.com/playlist?list=PL6UDFwT9TzFxsVdFiEBsQ9yFpcYRPOpfO&si=IyXv1SkdPyvhcW7Z" 
      id="smartLessaBtn" target="_blank">👉 @SmartLessa</a>
 
@@ -155,21 +155,19 @@
   </a-scene>
 
   <script>
-    // --- Використовуємо задню камеру ---
-    document.querySelector('a-scene').addEventListener('loaded', () => {
-      AFRAME.utils.device.getCameraPermission = function () {
-        return navigator.mediaDevices.getUserMedia({
-          video: { facingMode: 'environment' }
-        });
-      };
-    });
+    // --- 1. Встановлюємо доступ до задньої камери (ДО завантаження сцени) ---
+    AFRAME.utils.device.getCameraPermission = function () {
+      return navigator.mediaDevices.getUserMedia({
+        video: { facingMode: 'environment' }
+      });
+    };
 
-    // --- Клацни, щоб увімкнути ---
+    // --- 2. Клацни, щоб увімкнути камеру ---
     document.getElementById('loading').addEventListener('click', () => {
       document.getElementById('loading').style.display = 'none';
     });
 
-    // --- Змінні ---
+    // --- 3. Змінні ---
     const upload = document.getElementById('upload');
     const userImg = document.getElementById('userImg');
     const piecesEl = document.getElementById('pieces');
@@ -186,7 +184,7 @@
       { x:  0.25, y: -0.25 }
     ];
 
-    // --- Завантаження фото ---
+    // --- 4. Завантаження фото ---
     upload.addEventListener('change', (e) => {
       const file = e.target.files[0];
       if (file) {
@@ -196,10 +194,14 @@
           createPieces();
           hint.textContent = "🔍 Шукай маркер!";
         };
+        // Помилка завантаження
+        userImg.onerror = () => {
+          alert("Не вдалося завантажити фото. Спробуйте інше.");
+        };
       }
     });
 
-    // --- Створення частин ---
+    // --- 5. Створення частин ---
     function createPieces() {
       piecesEl.innerHTML = '';
       pieces = [];
@@ -217,7 +219,7 @@
       setTimeout(enableDrag, 1000);
     }
 
-    // --- Перетягування ---
+    // --- 6. Перетягування ---
     function enableDrag() {
       const scene = document.querySelector('a-scene');
       const camera = scene.camera;
@@ -270,7 +272,6 @@
         selected = null;
       });
 
-      // Перетворення координат миші в NDC
       function getNDC(e) {
         const rect = scene.canvas.getBoundingClientRect();
         return {
@@ -279,7 +280,6 @@
         };
       }
 
-      // Отримати всі mesh'і активних частин
       function getMeshes() {
         return pieces
           .filter(p => !p.placed)
@@ -288,11 +288,16 @@
       }
     }
 
-    // --- Перевірка перемоги ---
+    // --- 7. Перевірка перемоги ---
     function checkWin() {
       if (pieces.every(p => p.placed)) {
         winText.setAttribute('visible', 'true');
-        confetti({ particleCount: 100, spread: 70, origin: { y: 0.6 }, colors: ['#ff0044', '#ffa500', '#ffff00', '#00ff00', '#0066ff'] });
+        confetti({
+          particleCount: 100,
+          spread: 70,
+          origin: { y: 0.6 },
+          colors: ['#ff0044', '#ff6600', '#ffff00', '#00cc00', '#0066ff']
+        });
         hint.textContent = "🎉 Молодець! Завантаж наступне фото!";
       }
     }
