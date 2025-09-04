@@ -154,9 +154,6 @@
     </a-entity>
   </a-scene>
 
-  <!-- Звук при перемозі -->
-  <audio id="successSound" src="https://cdn.pixabay.com/audio/2021/09/21/audio_2811f3692c.mp3" preload="auto"></audio>
-
   <script>
     // --- Використовуємо задню камеру ---
     document.querySelector('a-scene').addEventListener('loaded', () => {
@@ -177,7 +174,6 @@
     const userImg = document.getElementById('userImg');
     const piecesEl = document.getElementById('pieces');
     const winText = document.querySelector('#winText');
-    const successSound = document.getElementById('successSound');
     const hint = document.getElementById('hint');
 
     let pieces = [];
@@ -212,7 +208,7 @@
         piece.setAttribute('width', 0.5);
         piece.setAttribute('height', 0.5);
         piece.setAttribute('position', `${pos.x} ${pos.y + 1} 0`);
-        piece.setAttribute('material', `src: #userImg; shader: flat; repeat: 0.5 0.5; offset: ${i%2===0?0:0.5} ${i<2?0:0.5}; transparent: true;`);
+        piece.setAttribute('material', `src: #userImg; shader: flat; repeat: 0.5 0.5; offset: ${i % 2 === 0 ? 0 : 0.5} ${i < 2 ? 0 : 0.5}; transparent: true;`);
         piece.setAttribute('id', `piece-${i}`);
         piece.setAttribute('animation', `property: position; to: ${pos.x} ${pos.y} 0; dur: 800; easing: easeOutElastic`);
         piecesEl.appendChild(piece);
@@ -260,7 +256,8 @@
           if (p.el === selected && !p.placed) {
             const dx = pos.x - p.target.x;
             const dy = pos.y - p.target.y;
-            if (Math.sqrt(dx*dx + dy*dy) < 0.1) {
+            const dist = Math.sqrt(dx * dx + dy * dy);
+            if (dist < 0.1) {
               pos.x = p.target.x;
               pos.y = p.target.y;
               p.placed = true;
@@ -273,6 +270,7 @@
         selected = null;
       });
 
+      // Перетворення координат миші в NDC
       function getNDC(e) {
         const rect = scene.canvas.getBoundingClientRect();
         return {
@@ -281,6 +279,7 @@
         };
       }
 
+      // Отримати всі mesh'і активних частин
       function getMeshes() {
         return pieces
           .filter(p => !p.placed)
@@ -293,8 +292,7 @@
     function checkWin() {
       if (pieces.every(p => p.placed)) {
         winText.setAttribute('visible', 'true');
-        successSound.play().catch(() => {});
-        confetti({ particleCount: 100, spread: 70, origin: { y: 0.6 } });
+        confetti({ particleCount: 100, spread: 70, origin: { y: 0.6 }, colors: ['#ff0044', '#ffa500', '#ffff00', '#00ff00', '#0066ff'] });
         hint.textContent = "🎉 Молодець! Завантаж наступне фото!";
       }
     }
