@@ -9,7 +9,7 @@
   <script src="https://aframe.io/releases/1.5.0/aframe.min.js"></script>
   <!-- MindAR (AR за зображенням) -->
   <script src="https://cdn.jsdelivr.net/gh/hiukim/mind-ar-js@1.2.5/dist/mindar-image-aframe.prod.js"></script>
-  <!-- Confetti для святкових ефектів -->
+  <!-- Confetti -->
   <script src="https://cdn.jsdelivr.net/npm/canvas-confetti@1.5.1/dist/confetti.browser.min.js"></script>
 
   <style>
@@ -56,20 +56,18 @@
       z-index: 10;
     }
 
-    /* Кнопки керування (унизу) */
+    /* Кнопка завантаження */
     #controls {
       position: fixed;
       bottom: 20px;
       left: 50%;
       transform: translateX(-50%);
-      display: flex;
-      gap: 15px;
       z-index: 100;
     }
 
     .btn {
-      padding: 12px 20px;
-      font-size: 16px;
+      padding: 14px 24px;
+      font-size: 18px;
       font-weight: bold;
       border: none;
       border-radius: 30px;
@@ -79,12 +77,12 @@
       box-shadow: 0 4px 10px rgba(0,0,0,0.2);
     }
 
-    /* Кнопка YouTube — мала, не перекриває сцену */
+    /* Кнопка YouTube — мала, у кутку */
     #smartLessaBtn {
       position: fixed;
       bottom: 15px;
       right: 15px;
-      background: linear-gradient(45deg, #ff0000, #cc0000);
+      background: #ff0000;
       color: white;
       font-size: 12px;
       font-weight: bold;
@@ -93,7 +91,6 @@
       border-radius: 20px;
       z-index: 90;
       box-shadow: 0 4px 8px rgba(0,0,0,0.3);
-      text-align: center;
     }
 
     /* AR Сцена */
@@ -107,23 +104,22 @@
 
   <!-- Екран: клацни, щоб увімкнути -->
   <div id="loading">
-    🔮 Чарівний AR-пазл<br>
-    👉 Клацни, щоб увімкнути камеру!
+    🔮 AR-пазл чекає на твоє фото!<br>
+    👉 Клацни, щоб увімкнути камеру
   </div>
 
   <!-- Підказка -->
-  <div id="hint">🔍 Наведи на маркер-зірку</div>
+  <div id="hint">📸 Завантаж фото → знайди маркер</div>
 
-  <!-- Кнопки: завантажити / демо -->
+  <!-- Кнопка завантаження -->
   <div id="controls">
     <label class="btn">
-      📸 Фото
+      📷 Завантаж своє фото
       <input type="file" id="upload" accept="image/*" style="display: none;">
     </label>
-    <button id="demoBtn" class="btn">🎮 Демо</button>
   </div>
 
-  <!-- Кнопка YouTube — мала, у кутку -->
+  <!-- Кнопка YouTube -->
   <a href="https://youtube.com/playlist?list=PL6UDFwT9TzFxsVdFiEBsQ9yFpcYRPOpfO&si=IyXv1SkdPyvhcW7Z" 
      id="smartLessaBtn" target="_blank">👉 @SmartLessa</a>
 
@@ -162,23 +158,22 @@
   <audio id="successSound" src="https://cdn.pixabay.com/audio/2021/09/21/audio_2811f3692c.mp3" preload="auto"></audio>
 
   <script>
-    // --- Запуск камери (задня) ---
+    // --- Використовуємо задню камеру ---
     document.querySelector('a-scene').addEventListener('loaded', () => {
       AFRAME.utils.device.getCameraPermission = function () {
         return navigator.mediaDevices.getUserMedia({
-          video: { facingMode: 'environment' } // Задня камера
+          video: { facingMode: 'environment' }
         });
       };
     });
 
-    // --- Екран "клацни" ---
+    // --- Клацни, щоб увімкнути ---
     document.getElementById('loading').addEventListener('click', () => {
       document.getElementById('loading').style.display = 'none';
     });
 
     // --- Змінні ---
     const upload = document.getElementById('upload');
-    const demoBtn = document.getElementById('demoBtn');
     const userImg = document.getElementById('userImg');
     const piecesEl = document.getElementById('pieces');
     const winText = document.querySelector('#winText');
@@ -198,21 +193,15 @@
     // --- Завантаження фото ---
     upload.addEventListener('change', (e) => {
       const file = e.target.files[0];
-      if (file) startPuzzle(URL.createObjectURL(file));
+      if (file) {
+        const url = URL.createObjectURL(file);
+        userImg.src = url;
+        userImg.onload = () => {
+          createPieces();
+          hint.textContent = "🔍 Шукай маркер!";
+        };
+      }
     });
-
-    demoBtn.addEventListener('click', () => {
-      const demoImg = 'https://source.unsplash.com/random/800x800?smile,kid,joy';
-      startPuzzle(demoImg);
-    });
-
-    function startPuzzle(src) {
-      userImg.src = src;
-      userImg.onload = () => {
-        createPieces();
-        hint.textContent = "Шукай маркер!";
-      };
-    }
 
     // --- Створення частин ---
     function createPieces() {
@@ -306,10 +295,9 @@
         winText.setAttribute('visible', 'true');
         successSound.play().catch(() => {});
         confetti({ particleCount: 100, spread: 70, origin: { y: 0.6 } });
-        hint.textContent = "🎉 Молодець! Завантаж нове фото!";
+        hint.textContent = "🎉 Молодець! Завантаж наступне фото!";
       }
     }
   </script>
 </body>
 </html>
-
